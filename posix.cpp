@@ -1,0 +1,50 @@
+#include <cassert>
+#include <cerrno>
+
+#include <unistd.h>
+
+namespace posix {
+
+int read_all(int fd, char* destination, int count) {
+    int total = 0;
+    while (total < count) {
+        const int rc = ::read(fd, destination + total, count - total);
+        if (rc == -1 && errno == EINTR) {
+            continue; // interrupted by signal before a byte was read, try again
+        } else if (rc == -1) {
+            return -errno; // error, return a negative error code
+        } else if (rc == 0) {
+            break; // end of file, stop reading
+        }
+        total += rc; // got some bytes
+    }
+    return total;
+}
+
+int write_all(int fd, const char* source, int count) {
+    int total = 0;
+    while (total < count) {
+        const int rc = ::write(fd, source + total, count - total);
+        if (rc == -1 && errno == EINTR) {
+            continue; // interrupted by signal before a byte was written, try again
+        } else if (rc == -1) {
+            return -errno; // error, return a negative error code
+        }
+        total += rc;
+    }
+    return total;
+}
+
+int page_size() {
+    // `sysconf` returns `long`, not `int`. The POSIX (OpenGroup) documentation
+    // notes that this is particularly relevant for page size due to possible
+    // future gigantic values for page size. But in a 32-bit `int` world, I'm
+    // not trying to support page sizes larger than 2 gigabytes.
+    // Wiser would probably be to use `size_t` and `ssize_t` for unsigned and
+    // signed I/O quantities, respectively. But I like `int`.
+    const int rc = ::sysconf(_SC_PAGE_SIZE);
+    assert(rc != -1);
+    return rc;
+}
+
+} // namespace posix
