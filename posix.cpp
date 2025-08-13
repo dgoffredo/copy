@@ -1,6 +1,10 @@
+#include "posix.h"
+
 #include <cassert>
 #include <cerrno>
 
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 namespace posix {
@@ -33,6 +37,38 @@ int write_all(int fd, const char* source, int count) {
         total += rc;
     }
     return total;
+}
+
+int open_for_reading(const char* path) {
+    int fd;
+    do {
+        fd = ::open(path, O_RDONLY);
+    } while (fd == -1 && errno == EINTR);
+    return fd  == -1 ? -errno : fd;
+}
+
+int open_for_writing(const char* path, unsigned mode) {
+    int fd;
+    do {
+        fd = ::open(path, O_WRONLY | O_CREAT | O_TRUNC, static_cast<mode_t>(mode));
+    } while (fd == -1 && errno == EINTR);
+    return fd  == -1 ? -errno : fd;
+}
+
+void close(int fd) {
+    int rc;
+    do {
+        rc = ::close(fd);
+    } while (rc == -1 && errno == EINTR);
+    // All other errors are ignored.
+}
+
+FileModeResult file_mode(int fd) {
+    struct stat file_info;
+    if (::fstat(fd, &file_info)) {
+        return {.error = errno, .mode = 0};
+    }
+    return {.error = 0, .mode = file_info.st_mode};
 }
 
 int page_size() {
