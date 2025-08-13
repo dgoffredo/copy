@@ -1,7 +1,5 @@
 #pragma once
 
-#include <string_view>
-
 namespace posix {
 
 // Read from the file associated with the file descriptor, `fd`, `count` bytes
