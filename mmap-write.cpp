@@ -67,17 +67,16 @@ int main(int argc, char* argv[]) {
     }
     Unmapper source_unmapper{source.address, status.size, options.source};
 
-    const auto dest = posix::open_and_memory_map_for_writing(options.destination.c_str(), status.mode, status.size);
-    if (dest.error) {
-        std::cerr << "Unable to open/mmap \"" << options.destination << "\" for writing: " << std::strerror(dest.error) << '\n';
+    const int destination_fd = posix::open_for_writing(options.destination.c_str(), status.mode);
+    if (destination_fd < 0) {
+        std::cerr << "Unable to open/mmap \"" << options.destination << "\" for writing: " << std::strerror(-destination_fd) << '\n';
         return 1;
     }
-    Closer destination_closer{dest.fd};
-    Unmapper destination_unmapper{dest.address, status.size, options.destination};
+    Closer destination_closer{destination_fd};
 
-    std::copy_n(static_cast<const char*>(source.address), status.size, static_cast<char*>(dest.address));
-    if (const int rc = posix::memory_sync(dest.address, status.size)) {
-        std::cerr << "Unable to synchronize written memory region to \"" << options.destination << "\": " << std::strerror(rc) << '\n';
+    const int rc = posix::write_all(destination_fd, static_cast<const char*>(source.address), status.size);
+    if (rc < 0) {
+        std::cerr << "write error: " << std::strerror(-rc) << '\n';
         return 1;
     }
 }

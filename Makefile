@@ -5,12 +5,15 @@ CPPFLAGS ?= -MMD
 # C++ compiler flags
 CXXFLAGS ?= -Wall -Wextra -Werror -pedantic -O3 -flto --std=c++20
 
-all: read-write mmap-mmap
+all: read-write mmap-mmap mmap-write
 
 read-write: read-write.o posix.o
 	$(CXX) -o $@ $(CXXFLAGS) $^ $(LDFLAGS)
 
 mmap-mmap: mmap-mmap.o posix.o
+	$(CXX) -o $@ $(CXXFLAGS) $^ $(LDFLAGS)
+
+mmap-write: mmap-write.o posix.o
 	$(CXX) -o $@ $(CXXFLAGS) $^ $(LDFLAGS)
 
 clean:
