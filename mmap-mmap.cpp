@@ -1,18 +1,17 @@
 #include "posix.h"
 
+#include <algorithm>
 #include <cstring>
 #include <exception>
 #include <iostream>
 #include <ostream>
 #include <string>
 #include <string_view>
-#include <vector>
 
 struct Options {
     bool help = false;
     std::string source;
     std::string destination;
-    std::size_t buffer_size = posix::page_size();
 };
 
 void usage(std::string_view name, std::ostream& out);
@@ -36,6 +35,19 @@ int main(int argc, char* argv[]) {
         }
     };
 
+    class Unmapper {
+        void *address;
+        std::size_t count;
+        std::string path;
+     public:
+        Unmapper(void* address, std::size_t count, const std::string& path) : address(address), count(count), path(path) {}
+        ~Unmapper() {
+            if (const int rc = posix::memory_unmap(address, count)) {
+                std::cerr << "Failed to unmap memory for \"" << path << "\": " << std::strerror(rc) << '\n';
+            }
+        }
+    };
+
     const int source_fd = posix::open_for_reading(options.source.c_str());
     if (source_fd < 0) {
         std::cerr << "Unable to open \"" << options.source << "\" for reading: " << std::strerror(-source_fd) << '\n';
@@ -45,41 +57,35 @@ int main(int argc, char* argv[]) {
     
     const auto [error, status] = posix::file_status(source_fd);
     if (error) {
-        std::cerr << "Unable to determine the file mode of \"" << options.source << "\": " << std::strerror(error) << '\n';
+        std::cerr << "Unable to determine the file mode/size of \"" << options.source << "\": " << std::strerror(error) << '\n';
         return 1;
     }
-
-    const int destination_fd = posix::open_for_writing(options.destination.c_str(), status.mode);
-    if (destination_fd < 0) {
-        std::cerr << "Unable to open or create \"" << options.destination << "\" for writing: " << std::strerror(-destination_fd) << '\n';
+    const auto source = posix::memory_map_for_reading(source_fd, status.size);
+    if (source.error) {
+        std::cerr << "Unable to mmap \"" << options.source << "\" for reading: " << std::strerror(source.error) << '\n';
         return 1;
     }
-    Closer destination_closer{destination_fd};
+    Unmapper source_unmapper{source.address, status.size, options.source};
 
-    std::vector<char> buffer(options.buffer_size);
-    for (;;) {
-        const int count = posix::read_all(source_fd, buffer.data(), buffer.size());
-        if (count < 0) {
-            std::cerr << "read error: " << std::strerror(-count) << '\n';
-            return 1;
-        }
-        if (count == 0) {
-            // end of input file: we're done
-            break;
-        }
-        const int rc = posix::write_all(destination_fd, buffer.data(), count);
-        if (rc < 0) {
-            std::cerr << "write error: " << std::strerror(-rc) << '\n';
-            return 1;
-        }
+    const auto dest = posix::open_and_memory_map_for_writing(options.destination.c_str(), status.mode, status.size);
+    if (dest.error) {
+        std::cerr << "Unable to open/mmap \"" << options.destination << "\" for writing: " << std::strerror(dest.error) << '\n';
+        return 1;
+    }
+    Closer destination_closer{dest.fd};
+    Unmapper destination_unmapper{dest.address, status.size, options.destination};
+
+    std::copy_n(static_cast<const char*>(source.address), status.size, static_cast<char*>(dest.address));
+    if (const int rc2 = posix::memory_sync(dest.address, status.size)) {
+        std::cerr << "Unable to synchronize written memory region to \"" << options.destination << "\": " << std::strerror(rc2) << '\n';
+        return 1;
     }
 }
 
 void usage(std::string_view program_name, std::ostream& out) {
     out << "usage:\n\n"
-        "    " << program_name << " [--help | -h] [--buffer BUFSIZE] <source file> <destination file>\n\n"
+        "    " << program_name << " [--help | -h] <source file> <destination file>\n\n"
         "        --help or -h prints this message.\n"
-        "        BUFSIZE is the read/write buffer size in bytes. It defaults to one page.\n"
         "        <source file> is the path to the input file, to be read from.\n"
         "        <destination file> is the path to the output file, to be created/truncated and written to.\n";
 }
@@ -100,27 +106,6 @@ int parse_command_line(Options& options, int argc, char* argv[], std::ostream& o
             options.help = true;
             usage(program_name, out);
             return 0;
-        } else if (arg == "--buffer") {
-            ++argv;
-            if (!*argv) {
-                usage(program_name, error);
-                error << "\nerror: --buffer requires an integer argument.\n";
-                return 1;
-            }
-            long long value;
-            try {
-                value = std::stoll(*argv);
-            } catch (const std::exception&) {
-                usage(program_name, error);
-                error << "\nerror: \"" << *argv << "\" is not a valid integer argument for --buffer\n";
-                return 1;
-            }
-            if (value < 1) {
-                usage(program_name, error);
-                error << "\nerror: --buffer argument must be at least 1.\n";
-                return 1;
-            }
-            options.buffer_size = value;
         } else if (arg.substr(0, 1) == "-") {
             usage(program_name, error);
             error << "\nerror: Unknown option \"" << arg << "\". If you meant a file name, use \"./" << arg << "\".\n";

@@ -1,3 +1,7 @@
 # build artifacts
 /*.o
+/*.d
 /read-write
+/mmap-mmap
+/read-mmap
+/mmap-write

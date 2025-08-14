@@ -4,13 +4,14 @@
 #include <cerrno>
 
 #include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 namespace posix {
 
-int read_all(int fd, char* destination, int count) {
-    int total = 0;
+int read_all(int fd, char* destination, std::size_t count) {
+    std::size_t total = 0;
     while (total < count) {
         const int rc = ::read(fd, destination + total, count - total);
         if (rc == -1 && errno == EINTR) {
@@ -25,8 +26,8 @@ int read_all(int fd, char* destination, int count) {
     return total;
 }
 
-int write_all(int fd, const char* source, int count) {
-    int total = 0;
+int write_all(int fd, const char* source, std::size_t count) {
+    std::size_t total = 0;
     while (total < count) {
         const int rc = ::write(fd, source + total, count - total);
         if (rc == -1 && errno == EINTR) {
@@ -55,7 +56,15 @@ int open_for_writing(const char* path, unsigned mode) {
     return fd  == -1 ? -errno : fd;
 }
 
-void close(int fd) {
+int open_for_reading_and_writing(const char* path, unsigned mode) {
+    int fd;
+    do {
+        fd = ::open(path, O_RDWR | O_CREAT | O_TRUNC, static_cast<mode_t>(mode));
+    } while (fd == -1 && errno == EINTR);
+    return fd  == -1 ? -errno : fd;
+}
+
+void close_file(int fd) {
     int rc;
     do {
         rc = ::close(fd);
@@ -63,24 +72,71 @@ void close(int fd) {
     // All other errors are ignored.
 }
 
-FileModeResult file_mode(int fd) {
+FileStatusResult file_status(int fd) {
     struct stat file_info;
     if (::fstat(fd, &file_info)) {
-        return {.error = errno, .mode = 0};
+        return {.error = errno, .status = {.mode = 0, .size = 0}};
     }
-    return {.error = 0, .mode = file_info.st_mode};
+    return {.error = 0, .status = {.mode = file_info.st_mode, .size = std::size_t(file_info.st_size)}};
 }
 
-int page_size() {
-    // `sysconf` returns `long`, not `int`. The POSIX (OpenGroup) documentation
-    // notes that this is particularly relevant for page size due to possible
-    // future gigantic values for page size. But in a 32-bit `int` world, I'm
-    // not trying to support page sizes larger than 2 gigabytes.
-    // Wiser would probably be to use `size_t` and `ssize_t` for unsigned and
-    // signed I/O quantities, respectively. But I like `int`.
-    const int rc = ::sysconf(_SC_PAGE_SIZE);
+std::size_t page_size() {
+    const long rc = ::sysconf(_SC_PAGE_SIZE);
     assert(rc != -1);
     return rc;
+}
+
+MemoryMapResult memory_map_for_reading(int fd, std::size_t count) {
+    const int protection = PROT_READ;
+    const int flags = MAP_PRIVATE;
+    const off_t offset = 0;
+    void* address = ::mmap(nullptr, count, protection, flags, fd, offset);
+    if (address == MAP_FAILED) {
+        return {.error=errno, .address=nullptr, .fd=fd};
+    }
+    return {.error=0, .address=address, .fd=fd};
+}
+
+MemoryMapResult open_and_memory_map_for_writing(const char* path, unsigned mode, std::size_t count) {
+    const int fd = open_for_reading_and_writing(path, mode);
+    if (fd == -1) {
+        return {.error=errno, .address=nullptr, .fd=-1};
+    }
+    
+    int rc;
+    do {
+        rc = ::ftruncate(fd, count);
+    } while (rc == -1 && errno == EINTR);
+    if (rc == -1) {
+        close_file(fd);
+        return {.error=errno, .address=nullptr, .fd=-1};
+    }
+
+    const int protection = PROT_WRITE;
+    const int flags = MAP_SHARED;
+    const off_t offset = 0;
+    void* address = ::mmap(nullptr, count, protection, flags, fd, offset);
+    if (address == MAP_FAILED) {
+        close_file(fd);
+        return {.error=errno, .address=nullptr, .fd=-1};
+    }
+
+    return {.error=0, .address=address, .fd=fd};
+}
+
+int memory_sync(void* address, std::size_t count) {
+    const int flags = MS_SYNC;
+    if (const int rc = ::msync(address, count, flags)) {
+        return errno;
+    }
+    return 0;
+}
+
+int memory_unmap(void* address, std::size_t count) {
+    if (::munmap(address, count)) {
+        return errno;
+    }
+    return 0;
 }
 
 } // namespace posix
