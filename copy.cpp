@@ -1,6 +1,5 @@
 #include "posix.h"
 
-#include <algorithm>
 #include <cstring>
 #include <exception>
 #include <iostream>
@@ -26,58 +25,9 @@ int main(int argc, char* argv[]) {
         return 0; // `parse_command_line` printed the usage already
     }
 
-    class Closer {
-        int fd;
-     public:
-        explicit Closer(int fd) : fd(fd) {}
-        ~Closer() {
-            posix::close_file(fd);
-        }
-    };
-
-    class Unmapper {
-        void *address;
-        std::size_t count;
-        std::string path;
-     public:
-        Unmapper(void* address, std::size_t count, const std::string& path) : address(address), count(count), path(path) {}
-        ~Unmapper() {
-            if (const int rc = posix::memory_unmap(address, count)) {
-                std::cerr << "Failed to unmap memory for \"" << path << "\": " << std::strerror(rc) << '\n';
-            }
-        }
-    };
-
-    const int source_fd = posix::open_for_reading(options.source.c_str());
-    if (source_fd < 0) {
-        std::cerr << "Unable to open \"" << options.source << "\" for reading: " << std::strerror(-source_fd) << '\n';
-        return 1;
-    }
-    Closer source_closer{source_fd};
-    
-    const auto [error, status] = posix::file_status(source_fd);
-    if (error) {
-        std::cerr << "Unable to determine the file mode/size of \"" << options.source << "\": " << std::strerror(error) << '\n';
-        return 1;
-    }
-    const auto source = posix::memory_map_for_reading(source_fd, status.size);
-    if (source.error) {
-        std::cerr << "Unable to mmap \"" << options.source << "\" for reading: " << std::strerror(source.error) << '\n';
-        return 1;
-    }
-    Unmapper source_unmapper{source.address, status.size, options.source};
-
-    const auto dest = posix::open_and_memory_map_for_writing(options.destination.c_str(), status.mode, status.size);
-    if (dest.error) {
-        std::cerr << "Unable to open/mmap \"" << options.destination << "\" for writing: " << std::strerror(dest.error) << '\n';
-        return 1;
-    }
-    Closer destination_closer{dest.fd};
-    Unmapper destination_unmapper{dest.address, status.size, options.destination};
-
-    std::copy_n(static_cast<const char*>(source.address), status.size, static_cast<char*>(dest.address));
-    if (const int rc = posix::memory_sync(dest.address, status.size)) {
-        std::cerr << "Unable to synchronize written memory region to \"" << options.destination << "\": " << std::strerror(rc) << '\n';
+    const int rc = posix::copy_all(options.source.c_str(), options.destination.c_str());
+    if (rc == -1) {
+        std::cerr << "Unable to copy bytes from \"" << options.source << "\" to \"" << options.destination << "\": " << std::strerror(-rc) << '\n';
         return 1;
     }
 }

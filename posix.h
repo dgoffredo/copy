@@ -89,4 +89,11 @@ int memory_sync(void* address, std::size_t count);
 // `errno` if an error occurs.
 int memory_unmap(void* address, std::size_t count);
 
+// Copy the contents of the file indicated by its path `source_path` into the
+// file indicated by its path `destination_path`, creating the destination file
+// if necessary. Return zero on success, or return `-errno` if an error occurs.
+// Note that there is a possibility that more than zero bytes may be copied
+// when an error occurs, such as if the destination file becomes full.
+int copy_all(const char* source_path, const char* destination_path);
+
 } // namespace posix

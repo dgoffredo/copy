@@ -86,7 +86,7 @@ void usage(std::string_view program_name, std::ostream& out) {
 
 int parse_command_line(Options& options, int argc, char* argv[], std::ostream& out, std::ostream& error) {
     const std::string_view program_name =  argv[0];
-    if (argc < 1 + 1 || argc > 1 + 1 + 1 + 2) {
+    if (argc < 1 + 1 || argc > 1 + 1 + 2 + 2) {
         usage(program_name, error);
         return 1;
     }
