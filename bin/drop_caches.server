@@ -29,9 +29,13 @@ else
     exit 1
 fi
 
+stamp() {
+    date --iso=ns --utc | tr ',' '.'
+}
+
 while true; do
     while read return_fifo; do
-        echo "$(date --iso=ns --utc | tr ',' '.') dropping I/O caches"
+        echo "$(stamp) dropping I/O caches"
         drop
         result=$?
         echo "$result" >"$return_fifo"
