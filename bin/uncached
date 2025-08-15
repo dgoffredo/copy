@@ -19,4 +19,9 @@ var=$(dirname "$0")/../var
 
 rm -f "$var/input-file" "$var/output-file"
 2>/dev/null dd if=/dev/zero of="$var/input-file" "bs=$block_size" "count=$num_blocks"
-echo 3 >"$var/drop_caches.fifo"
+
+tmp=$(mktemp -d)
+mkfifo "$tmp/fifo"
+echo "$tmp/fifo" >"$var/drop_caches.fifo"
+cat "$tmp/fifo" >/dev/null
+rm -r "$tmp"

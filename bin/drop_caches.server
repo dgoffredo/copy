@@ -2,11 +2,9 @@
 
 # Run me as root.
 #
-# On Linux, whatever you write into "drop_caches.fifo" I will write into
-# "/proc/sys/vm/drop_caches".
-#
-# On Darwin, for each "word" (in the shell sense) you write into
-# "drop_caches.fifo", I invoke the `purge` program.
+# Write the path to a "return" fifo on my "request" fifo.
+# I'll purge the system's I/O caches and then write the resulting status to the
+# return pipe.
 
 var=$(dirname "$0")/../var
 
@@ -20,7 +18,7 @@ chmod 666 "$var/drop_caches.fifo"
 os=$(uname)
 if [ "$os" = 'Linux' ]; then
     drop() {
-        echo "$1" >/proc/sys/vm/drop_caches
+        echo '3' >/proc/sys/vm/drop_caches
     }
 elif [ "$os" = 'Darwin' ]; then
     drop() {
@@ -32,8 +30,10 @@ else
 fi
 
 while true; do
-    while read setting; do
-        printf "%s dropping file caches (%s)\n" "$(date --iso=ns --utc | tr ',' '.')" "$setting"
-        drop "$setting"
+    while read return_fifo; do
+        echo "$(date --iso=ns --utc | tr ',' '.') dropping I/O caches"
+        drop
+        result=$?
+        echo "$result" >"$return_fifo"
     done <"$var/drop_caches.fifo"
 done
