@@ -28,13 +28,13 @@ while true; do
             tool=read-write
             "$bin/uncached" $file_args
             "$repo/jsontime" "$repo/read-write" --buffer "$buf_size" "$var/input-file" "$var/output-file" | with_file_info
-            
+
             for tool in mmap-mmap read-mmap mmap-write copy; do
                 "$bin/uncached" $file_args
                 "$repo/jsontime" "$repo/$tool" "$var/input-file" "$var/output-file" | with_file_info
             done
 
-            tool=/usr/bin/cp
+            tool=/bin/cp
             "$bin/uncached" $file_args
             "$repo/jsontime" "$tool" "$var/input-file" "$var/output-file" | with_file_info
         done

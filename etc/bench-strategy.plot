@@ -1,4 +1,4 @@
-set pointsize 3
+set pointsize 1.5
 
 set logscale y 10
 set logscale x 2
@@ -17,4 +17,4 @@ plot '../var/wall-stats.dat' using ((strcol(1) eq 'read-write') ? $2 : NaN):($3/
      '' using ((strcol(1) eq 'mmap-write') ? $2*1.2 : NaN):($3/1000):($4/1000) with errorbars title 'mmap-write', \
      '' using ((strcol(1) eq 'read-mmap') ? $2*1.3 : NaN):($3/1000):($4/1000) with errorbars title 'read-mmap', \
      '' using ((strcol(1) eq 'copy') ? $2*1.4 : NaN):($3/1000):($4/1000) with errorbars title 'copy', \
-     '' using ((strcol(1) eq '/usr/bin/cp') ? $2*1.5 : NaN):($3/1000):($4/1000) with errorbars title '/usr/bin/cp'
+     '' using ((strcol(1) eq '/bin/cp') ? $2*1.5 : NaN):($3/1000):($4/1000) with errorbars title '/bin/cp'
