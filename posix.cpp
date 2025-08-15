@@ -102,7 +102,7 @@ MemoryMapResult open_and_memory_map_for_writing(const char* path, unsigned mode,
     if (fd == -1) {
         return {.error=errno, .address=nullptr, .fd=-1};
     }
-    
+
     int rc;
     do {
         rc = ::ftruncate(fd, count);
@@ -126,7 +126,7 @@ MemoryMapResult open_and_memory_map_for_writing(const char* path, unsigned mode,
 
 int memory_sync(void* address, std::size_t count) {
     const int flags = MS_SYNC;
-    if (const int rc = ::msync(address, count, flags)) {
+    if (::msync(address, count, flags)) {
         return errno;
     }
     return 0;
