@@ -5,7 +5,7 @@ CPPFLAGS ?= -MMD
 # C++ compiler flags
 CXXFLAGS ?= -Wall -Wextra -Werror -pedantic -O3 -flto --std=c++20
 
-BINS = read-write mmap-mmap mmap-write read-mmap copy
+BINS = read-write mmap-mmap mmap-write read-mmap copy jsontime
 
 all: $(BINS)
 
@@ -19,6 +19,9 @@ mmap-write: mmap-write.o posix.o
 	$(CXX) -o $@ $(CXXFLAGS) $^ $(LDFLAGS)
 
 read-mmap: read-mmap.o posix.o
+	$(CXX) -o $@ $(CXXFLAGS) $^ $(LDFLAGS)
+
+jsontime: jsontime.o
 	$(CXX) -o $@ $(CXXFLAGS) $^ $(LDFLAGS)
 
 # The "copy" program uses non-POSIX functions (sendfile() on Linux, copyfile()

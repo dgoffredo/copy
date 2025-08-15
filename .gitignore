@@ -6,6 +6,7 @@
 /read-mmap
 /mmap-write
 /copy
+/jsontime
 
 # runtime artifacts
 /var/*
