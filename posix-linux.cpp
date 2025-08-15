@@ -18,18 +18,18 @@ int copy_all(const char* source_path, const char* destination_path) {
 
     const int source_fd = open_for_reading(source_path);
     if (source_fd < 0) {
-        return source_fd;
+        return -source_fd;
     }
     Closer source_closer{source_fd};
     
     const auto [error, status] = posix::file_status(source_fd);
     if (error) {
-        return -error;
+        return error;
     }
 
     const int destination_fd = posix::open_for_writing(destination_path, status.mode);
     if (destination_fd < 0) {
-        return destination_fd;
+        return -destination_fd;
     }
     Closer destination_closer{destination_fd};
 
@@ -38,7 +38,7 @@ int copy_all(const char* source_path, const char* destination_path) {
         off_t* const offset = nullptr;
         const ssize_t rc = ::sendfile(destination_fd, source_fd, offset, status.size - total);
         if (rc == -1) {
-            return -errno;
+            return errno;
         }
         total += rc;
     }

@@ -11,7 +11,7 @@ int copy_all(const char* source_path, const char* destination_path) {
     const int rc = ::copyfile(source_path, destination_path, state, COPYFILE_ALL);
     ::copyfile_state_free(state);
     if (rc < 0) {
-        return -errno;
+        return errno;
     }
     return 0;
 }
