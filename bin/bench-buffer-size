@@ -1,0 +1,20 @@
+#!/bin/sh
+
+# Copy files of various sizes using `read-write`.
+# For each file size, vary the buffer size.
+# Print the output of `jsontime` together with the file and buffer sizes.
+
+bin=$(dirname "$0")
+repo=$bin/..
+var=$repo/var
+
+"$bin/file-sizes" | while read -r file_size_human file_size_bytes file_args; do
+    "$bin/file-sizes" | while read -r buf_size_human buf_size_bytes ignore && [ "$buf_size_bytes" -le "$file_size_bytes" ]; do
+        "$bin/uncached" $file_args
+        "$repo/jsontime" "$repo/read-write" --buffer "$buf_size_bytes" "$var/input-file" "$var/output-file" | \
+            jq -c \
+               --arg buf_size_human "$buf_size_human" --argjson buf_size_bytes "$buf_size_bytes" \
+               --arg file_size_human "$file_size_human" --argjson file_size_bytes "$file_size_bytes" \
+               '{filesz: $file_size_human, bufsz: $buf_size_human} + . + {file_size: $file_size_bytes, buffer_size: $buf_size_bytes}'
+    done
+done

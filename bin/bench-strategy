@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# Copy files of various sizes using `read-write`, `mmap-mmap`, `mmap-write`, `read-mmap`,
+# `copy`, and `cp`.
+# Print the output of `jsontime` together with the file sizes.
+# Continue in a loop forever.
+
+bin=$(dirname "$0")
+repo=$bin/..
+var=$repo/var
+
+with_file_info() {
+    jq -c \
+       --arg file_size_human "$file_size_human" \
+       --argjson file_size_bytes "$file_size_bytes" \
+       --arg tool "$tool" \
+       '{filesz: $file_size_human, tool: $tool} + . + {file_size: $file_size_bytes}'
+}
+
+while true; do
+    "$bin/file-sizes" | while read -r file_size_human file_size_bytes file_args; do
+            max_buf_size=$((1024 * 1024 * 8))
+            if [ "$file_size_bytes" -gt "$max_buf_size" ]; then
+                buf_size=$max_buf_size
+            else
+                buf_size=$file_size_bytes
+            fi
+            tool=read-write
+            "$bin/uncached" $file_args
+            "$repo/jsontime" "$repo/read-write" --buffer "$buf_size" "$var/input-file" "$var/output-file" | with_file_info
+            
+            for tool in mmap-mmap read-mmap mmap-write copy; do
+                "$bin/uncached" $file_args
+                "$repo/jsontime" "$repo/$tool" "$var/input-file" "$var/output-file" | with_file_info
+            done
+
+            tool=cp
+            "$bin/uncached" $file_args
+            "$repo/jsontime" "$tool" "$var/input-file" "$var/output-file" | with_file_info
+        done
+    done
+done
