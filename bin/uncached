@@ -1,0 +1,22 @@
+#!/bin/sh
+
+set -e
+
+if [ $# -ne 3 ]; then
+    >&2 echo "usage: $0 <block_size> \"x\" <num_blocks>"
+    >&2 echo
+    >&2 echo "example: $0 10M x 3"
+    >&2 echo
+    >&2 echo "creates a 30 mebibyte file named \"etc/input-file\"",
+    >&2 echo "deletes \"etc/output-file\", and drops I/O caches."
+    exit 1
+fi
+
+block_size=$1
+num_blocks=$3
+
+etc=$(dirname "$0")/../etc
+
+rm -f "$etc/input-file" "$etc/output-file"
+2>/dev/null dd if=/dev/zero of="$etc/input-file" "bs=$block_size" "count=$num_blocks"
+echo 3 >drop_caches.fifo

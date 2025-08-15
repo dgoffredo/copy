@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# Run me as root.
+#
+# Whatever you write into "drop_caches.fifo" I will write into
+# "/proc/sys/vm/drop_caches".
+
+var=$(dirname "$0")/../var
+
+exec >"$var/drop_caches.log" 2>&1
+chmod 644 "$var/drop_caches.log"
+
+rm -f "$var/drop_caches.fifo"
+mkfifo "$var/drop_caches.fifo"
+chmod 666 "$var/drop_caches.fifo"
+
+while true; do
+    while read setting; do
+        printf "%s dropping file caches (%s)\n" "$(date --iso=ns --utc | tr ',' '.')" "$setting"
+        echo "$setting" >/proc/sys/vm/drop_caches
+    done <"$var/drop_caches.fifo"
+done
