@@ -25,9 +25,8 @@ int main(int argc, char* argv[]) {
         return 0; // `parse_command_line` printed the usage already
     }
 
-    const int rc = posix::copy_all(options.source.c_str(), options.destination.c_str());
-    if (rc == -1) {
-        std::cerr << "Unable to copy bytes from \"" << options.source << "\" to \"" << options.destination << "\": " << std::strerror(-rc) << '\n';
+    if (const int rc = posix::copy_all(options.source.c_str(), options.destination.c_str())) {
+        std::cerr << "Unable to copy bytes from \"" << options.source << "\" to \"" << options.destination << "\": " << std::strerror(rc) << '\n';
         return 1;
     }
 }
