@@ -34,7 +34,7 @@ while true; do
                 "$repo/jsontime" "$repo/$tool" "$var/input-file" "$var/output-file" | with_file_info
             done
 
-            tool=cp
+            tool=/usr/bin/cp
             "$bin/uncached" $file_args
             "$repo/jsontime" "$tool" "$var/input-file" "$var/output-file" | with_file_info
         done

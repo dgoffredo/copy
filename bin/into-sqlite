@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+
+# usage:
+#     $ <some-json-lines-file bin/into-sqlite db.sqlite
+
+import json
+import sqlite3
+import sys
+
+
+if __name__ == '__main__':
+    dbpath = sys.argv[1]
+    db = sqlite3.connect(dbpath)
+    db.execute("""
+        create table CopyRun(
+            tool text not null,
+            file_size integer not null,
+            cpu_user_micros integer not null,
+            cpu_system_micros integer not null,
+            wall_micros integer not null,
+            max_resident_size_kb integer not null)
+        """)
+    
+    skipped = 0
+    for line in sys.stdin:
+        if line.strip() == '':
+            continue
+        run = json.loads(line)
+        if run.get('status') != 0:
+            skipped += 1
+            continue
+        columns = 'tool file_size cpu_user_micros cpu_system_micros wall_micros max_resident_size_kb'.split()
+        db.execute(f"""
+            insert into CopyRun({', '.join(columns)})
+            values ({', '.join(':' + column for column in columns)});
+            """, {column: run.get(column) for column in columns})
+            
+    db.commit()
+    db.close()
+    
+    if skipped > 0:
+        print(f'skipped {skipped} lines that had nonzero exit .status', file=sys.stderr)
