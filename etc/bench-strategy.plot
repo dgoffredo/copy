@@ -1,4 +1,4 @@
-set pointsize 3
+set pointsize 2
 
 set logscale y 10
 set logscale x 2
