@@ -18,6 +18,7 @@ Copy files real fast.
 `plot/` contains a makefile that uses files in `etc/` and `var/` to produce visualizations.
 
 Here's the result of a run on my new Linux laptop. The error bars are one
-standard deviation above and below. Note that both axes are logarithmic:
+standard deviation above and below the mean. Note that both axes are
+logarithmic:
 
 ![copy wall time versus file size on Linux](linux.png)
